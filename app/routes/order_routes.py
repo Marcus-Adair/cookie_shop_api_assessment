@@ -24,10 +24,10 @@ orders = []
 
 # Swagger model for input/output
 order_model = order_ns.model('Order', {
-    'name': fields.String(required=True, description='Name of the cookie'),
-    'description': fields.String(required=True, description='Cookie description'),
-    'price': fields.Float(required=True, description='Price of the cookie'),
-    'inventory_count': fields.Integer(required=True, description='Inventory count'),
+    # 'name': fields.String(required=True, description='Name of the cookie'),
+    # 'description': fields.String(required=True, description='Cookie description'),
+    # 'price': fields.Float(required=True, description='Price of the cookie'),
+    # 'inventory_count': fields.Integer(required=True, description='Inventory count'),
 })
 
 

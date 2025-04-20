@@ -5,7 +5,7 @@
 class Cookie:
     
     # Shared Class Variables
-    _id_counter = 1  # Class-level counter to give cookie unique IDs
+    _id_counter = 0  # Class-level counter to give cookie unique IDs
 
 
     def __init__(self, name: str, description: str, price: float, inventory_count: int):
@@ -14,7 +14,6 @@ class Cookie:
             Constructor for a new Cookie 
         '''
 
-        # TODO; remove this error validation and use Schema instead
         # Validate inputs to new Cookie
         if not isinstance(name, str) or not name:
             raise ValueError("Cookie name must be a non-empty string.")
