@@ -24,9 +24,9 @@ orders = []
 # Init some data to the storage
 dt = datetime.fromisoformat('2025-01-20T15:30:00Z'.replace('Z', '+00:00'))
 dt2 = datetime.fromisoformat('2025-02-02T15:30:00Z'.replace('Z', '+00:00'))
-pending_status = Order.OrderStatus
+pending_status = getattr(Order.OrderStatus, "PENDING")
 
-order_1 = Order({1: 5, 0: 2}, dt, dt2, pending_status.PENDING)
+order_1 = Order({1: 5, 0: 2}, dt, dt2, pending_status)
 orders.append(order_1)
 # ----------------------------------------------------------------- ##
 
@@ -45,7 +45,7 @@ datetime_example = '2025-04-21T15:30:00Z'
 
 
 status_description = 'The status of the order'
-status_enum = ['PENDING', 'DELIVERED', 'CANCELLED']
+status_enum = ['PENDING', 'COOKING', 'SHIPPING', 'DELIVERED', 'CANCELLED']
 status_example = 'PENDING'
 
 
@@ -101,6 +101,11 @@ order_output_model = order_ns.model('OuputOrder', {
     ),
 })
 
+
+# === Model for Patching/Updating a Order === #
+order_patch_model = order_ns.model('OrderPatch', {
+    'status': fields.String(description=status_description, example=status_example),
+})
 # ----------------------------------------------------------------- ##
 
 
@@ -203,8 +208,10 @@ class OrderList(Resource):
             int(key): value
             for key, value in cookies_and_quantities.items()
         }
+
         deliver_date_datetime = datetime.fromisoformat(deliver_date.replace('Z', '+00:00'))
-        order_status = Order.OrderStatus
+
+        pending_status = getattr(Order.OrderStatus, "PENDING")
 
 
         # TODO: make sure all of the IDs are valid by calling /cookies and checking IDs
@@ -212,7 +219,7 @@ class OrderList(Resource):
 
         # Create a new Order instance 
         try:
-            new_order = Order(cookies_and_quantities=cookies_and_quantities_dict, order_date=datetime.now(), deliver_date=deliver_date_datetime, status=order_status.PENDING)
+            new_order = Order(cookies_and_quantities=cookies_and_quantities_dict, order_date=datetime.now(), deliver_date=deliver_date_datetime, status=pending_status)
         except ValueError as e:
             return {'message': str(e)}, 400  # Return the validation error from the Order constructor
 
@@ -247,5 +254,60 @@ class OrderByID(Resource):
 
 
 
-    # TODO: add endpoint to update status by ID (with transition validation)
+    # PATCH /orders/<int:id>    (update the status of an order)
+    @order_ns.expect(order_patch_model, validate=True)
+    @order_ns.response(200, 'Success', order_output_model)
+    @order_ns.response(404, 'Order not found')
+    def patch(self, id):
+        '''
+        Partially update a order by its ID
+        '''
 
+        # Get data from the request body
+        data = request.get_json()
+
+
+
+
+
+        # Find the order with the matching ID and save the index its at in the list
+        order_to_update = None
+        order_idx = 0
+        for order in orders:
+            if order.id == id:
+                order_to_update = order
+                break
+            order_idx +=1
+
+        if order_to_update is None:
+            return {'message': f'order with ID {id} not found.'}, 404
+        
+
+        # Map to define which state can transition to which
+        valid_transitions = {
+            "PENDING": ["COOKING", "CANCELLED"],
+            "COOKING": ["SHIPPING", "CANCELLED"],
+            "SHIPPING": ["DELIVERED", "CANCELLED"],
+            "DELIVERED": [],
+            "CANCELLED": []
+        }
+
+        if 'status' in data:
+            status_given = data['status'].upper() # Get status to try to transition to
+            current_status = order_to_update.status.name.upper()
+
+            if not hasattr(Order.OrderStatus, status_given):
+                return {'message': f'The given status is not valid: {status_given}'}, 404
+
+            if status_given not in valid_transitions.get(current_status, []):
+                return {'message': f'Cannot transition from {current_status} to {status_given}.'}, 400
+
+            new_status = getattr(Order.OrderStatus, status_given)
+            order_to_update.set_status(new_status)
+
+    
+        # Update the cookie
+        orders[order_idx] = order_to_update
+
+        return order_to_update.to_dict(), 200
+    

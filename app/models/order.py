@@ -13,8 +13,10 @@ class Order:
     # Statuses for an order
     class OrderStatus(Enum):
         PENDING = 1
-        DELIVERED = 2
-        CANCELLED = 3  
+        COOKING = 2
+        SHIPPING = 3
+        DELIVERED = 4
+        CANCELLED = 5  
 
 
     def __init__(self, cookies_and_quantities: dict, order_date: datetime, deliver_date: datetime, status: OrderStatus):
