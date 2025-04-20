@@ -79,7 +79,7 @@ class CookieList(Resource):
 
     # GET /cookies (list all exisitng cookies)
     @cookie_ns.marshal_list_with(cookie_output_model)
-    @cookie_ns.doc(params={'name_search': f"Filter by order name."})
+    @cookie_ns.param('name_search', "Filter by order name.")
     @cookie_ns.param('min_price', 'Filter by minimum price (float)', type='float')
     @cookie_ns.param('max_price', 'Filter by maximum price (float)', type='float')
     def get(self):
