@@ -302,7 +302,7 @@ class OrderByID(Resource):
             order_to_update.set_status(new_status)
 
     
-            # Update the orer
+            # Update the order
             orders[order_idx] = order_to_update
 
             return order_to_update.to_dict(), 200
