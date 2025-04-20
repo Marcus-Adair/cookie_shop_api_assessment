@@ -106,7 +106,7 @@ class CookieList(Resource):
             # Add cookie if it passes all the filter
             filtered_cookies.append(cookie.to_dict())
 
-        return filtered_cookies
+        return filtered_cookies, 200
     
     
 

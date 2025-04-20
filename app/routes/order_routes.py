@@ -2,8 +2,9 @@
     Cookie Routes - with Swagger Namespace
 '''
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from flask_restx import Namespace, Resource, fields
+from app.routes.cookie_routes import CookieByID
 from datetime import datetime
 from app.models.order import Order
 from app.models.cookie import Cookie
@@ -25,7 +26,7 @@ dt = datetime.fromisoformat('2025-01-20T15:30:00Z'.replace('Z', '+00:00'))
 dt2 = datetime.fromisoformat('2025-02-02T15:30:00Z'.replace('Z', '+00:00'))
 pending_status = Order.OrderStatus
 
-order_1 = Order({1: 5}, dt, dt2, pending_status.PENDING)
+order_1 = Order({1: 5, 0: 2}, dt, dt2, pending_status.PENDING)
 orders.append(order_1)
 # ----------------------------------------------------------------- ##
 
@@ -108,34 +109,77 @@ order_output_model = order_ns.model('OuputOrder', {
 class OrderList(Resource):
 
 
-    # TODO: add filter by date range 
-
-    # TODO: add filter by total amount
-
     # GET /orders (list all orders or filter by status)
     @order_ns.marshal_list_with(order_output_model)
-    @order_ns.doc(params={'status': f"Filter by order status. Options: {', '.join(status_enum)}"})
+    @order_ns.param('status', f"Filter by order status. Options: {', '.join(status_enum)}")
+    @order_ns.param('min_total_amount', 'Filter by minimum total amount (float)', type='float')
+    @order_ns.param('max_total_amount', 'Filter by maximum total amount (float)', type='float')
+    @order_ns.param('min_date', 'Filter by minimum total amount (float)')
+    @order_ns.param('max_date', 'Filter by maximum total amount (float)')
     def get(self):
         '''
         Get all orders, optionally filtered by status
         '''
-        status = request.args.get('status', None)
 
-        # TODO: add logic to filter by total amount and date too 
+        # Get search params
+        status_search = request.args.get('status', None)
+        min_total_amount = request.args.get('min_total_amount', type=float)
+        max_total_amount = request.args.get('max_total_amount', type=float)
+        min_date = request.args.get('min_date')
+        max_date = request.args.get('max_date')
+        if min_date:
+            min_date = datetime.fromisoformat(min_date.replace('Z', '+00:00'))
+        if max_date:
+            max_date = datetime.fromisoformat(max_date.replace('Z', '+00:00'))
 
 
-        if status:
-            # Normalize and validate status input
-            status = status.upper()
-            if status not in status_enum:
-                return {'message': f"Invalid status '{status}'. Must be one of {status_enum}"}, 400
+        filtered_orders = []
 
-            filtered_orders = [order.to_dict() for order in orders if order.status.name == status]
-            return filtered_orders, 200
+        for order in orders:
 
-        # Return all orders if no filter is applied
-        return [order.to_dict() for order in orders], 200
+            # Filter by order status
+            if status_search and status_search.upper() != order.status.name.upper():
+                continue
 
+
+            # Filter by the order date
+            order_date = order.order_date # The date the order was made
+            if min_date is not None and order_date < min_date:
+                continue
+            if max_date is not None and order_date > max_date:
+                continue
+
+
+            # If we want to filter by order's total amount
+            total_amount = 0
+            if min_total_amount or max_total_amount:
+
+                # For each cookie-quantity combo in the order
+                for cookie_id, cookie_quantity in order.cookies_and_quantities.items():
+
+                    # Get the cookie details 
+                    response_data, status_code = CookieByID().get(cookie_id)
+                    if status_code == 200 and response_data:
+                        cookie_price = response_data.get('price')
+                        if cookie_price:
+
+                            # Calculate order amount for current cookie
+                            total_amount += (cookie_price * cookie_quantity) 
+
+                    else:
+                        print("No data or request failed when when getting cookie amounts")
+
+
+            # Filter by the total cookie amount in the order
+            if min_total_amount is not None and total_amount < min_total_amount:
+                continue
+            if max_total_amount is not None and total_amount > max_total_amount:
+                continue
+
+
+            filtered_orders.append(order.to_dict()) # Add valid orders
+
+        return filtered_orders, 200
 
 
 
