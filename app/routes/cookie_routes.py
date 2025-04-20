@@ -6,7 +6,7 @@ from flask import Blueprint, jsonify, request
 from flask_restx import Namespace, Resource, fields
 from app.models.cookie import Cookie
 cookie_routes = Blueprint('cookie_routes', __name__) # Create Blueprint
-cookie_ns = Namespace('cookies', description='Operations related to cookies') # Create RESTX Namespace (for Swagger)
+cookie_ns = Namespace('cookies', description='Operations related to cookies') # Create RESTX Namespace
 
 
 # In-memory storage for demo 
