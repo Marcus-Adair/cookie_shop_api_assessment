@@ -4,24 +4,18 @@
 
 from flask import Blueprint, jsonify, request, current_app
 from flask_restx import Namespace, Resource, fields
-from app.routes.cookie_routes import CookieByID
 from datetime import datetime
 from app.models.order import Order
-from app.models.cookie import Cookie
-
-
-# Create Blueprint
-order_routes = Blueprint('order_routes', __name__)
-
-# Create RESTX Namespace (for Swagger)
-order_ns = Namespace('orders', description='Operations related to orders')
+from app.routes.cookie_routes import CookieByID
+order_routes = Blueprint('order_routes', __name__) # Create Blueprint
+order_ns = Namespace('orders', description='Operations related to orders') # Create RESTX Namespace (for Swagger)
 
 
 # In-memory storage for demo 
 # ----------------------------------------------------------------- ##
 orders = [] 
 
-# Init some data to the storage
+# Init some mock data to the storage
 dt = datetime.fromisoformat('2025-01-20T15:30:00Z'.replace('Z', '+00:00'))
 dt2 = datetime.fromisoformat('2025-02-02T15:30:00Z'.replace('Z', '+00:00'))
 pending_status = getattr(Order.OrderStatus, "PENDING")
@@ -36,7 +30,7 @@ orders.append(order_1)
 
 # Vars to reuse among models
 cookies_and_quantities_description = 'Dictionary mapping cookie IDs (non-negative integers) to quantities (non-negative integers)'
-cookies_and_quantities_example = {1: 12, 3: 5}
+cookies_and_quantities_example = {0: 12, 1: 5}
 
 
 order_date_description = 'The datetime when the order was placed'
@@ -106,6 +100,7 @@ order_output_model = order_ns.model('OuputOrder', {
 order_patch_model = order_ns.model('OrderPatch', {
     'status': fields.String(description=status_description, example=status_example),
 })
+
 # ----------------------------------------------------------------- ##
 
 
@@ -237,6 +232,7 @@ class OrderList(Resource):
 @order_ns.param('id', 'The unique ID of the order')
 class OrderByID(Resource):
 
+
     # GET /orders/<int:id>     (get specific order by id)
     @order_ns.response(200, 'Success', order_output_model)
     @order_ns.response(404, 'Order not found')
@@ -253,61 +249,64 @@ class OrderByID(Resource):
     
 
 
-
     # PATCH /orders/<int:id>    (update the status of an order)
     @order_ns.expect(order_patch_model, validate=True)
     @order_ns.response(200, 'Success', order_output_model)
     @order_ns.response(404, 'Order not found')
     def patch(self, id):
         '''
-        Partially update a order by its ID
+        Update an order's status by its ID
         '''
+
 
         # Get data from the request body
         data = request.get_json()
 
-
-
-
-
-        # Find the order with the matching ID and save the index its at in the list
-        order_to_update = None
-        order_idx = 0
-        for order in orders:
-            if order.id == id:
-                order_to_update = order
-                break
-            order_idx +=1
-
-        if order_to_update is None:
-            return {'message': f'order with ID {id} not found.'}, 404
-        
-
-        # Map to define which state can transition to which
-        valid_transitions = {
-            "PENDING": ["COOKING", "CANCELLED"],
-            "COOKING": ["SHIPPING", "CANCELLED"],
-            "SHIPPING": ["DELIVERED", "CANCELLED"],
-            "DELIVERED": [],
-            "CANCELLED": []
-        }
-
         if 'status' in data:
-            status_given = data['status'].upper() # Get status to try to transition to
+
+            # Map to define which state can transition to which
+            valid_transitions = {
+                "PENDING": ["COOKING", "CANCELLED"],
+                "COOKING": ["SHIPPING", "CANCELLED"],
+                "SHIPPING": ["DELIVERED", "CANCELLED"],
+                "DELIVERED": [],
+                "CANCELLED": []
+            }
+
+            # Find the order with the matching ID and save the index its at in the list
+            order_to_update = None
+            order_idx = 0
+            for order in orders:
+                if order.id == id:
+                    order_to_update = order
+                    break
+                order_idx +=1
+
+            if order_to_update is None:
+                return {'message': f'order with ID {id} not found.'}, 404
+
+            # Get status to try to transition to and the current status
+            status_given = data['status'].upper() 
             current_status = order_to_update.status.name.upper()
 
+            # Make sure requested status is valid
             if not hasattr(Order.OrderStatus, status_given):
                 return {'message': f'The given status is not valid: {status_given}'}, 404
 
+            # Validate status transition
             if status_given not in valid_transitions.get(current_status, []):
                 return {'message': f'Cannot transition from {current_status} to {status_given}.'}, 400
 
+            # Transition status
             new_status = getattr(Order.OrderStatus, status_given)
             order_to_update.set_status(new_status)
 
     
-        # Update the cookie
-        orders[order_idx] = order_to_update
+            # Update the order
+            orders[order_idx] = order_to_update
 
-        return order_to_update.to_dict(), 200
+            return order_to_update.to_dict(), 200
+        
+        else:
+            return {'message': 'No status to transistion to given'}, 404
     

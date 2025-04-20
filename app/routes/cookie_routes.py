@@ -5,20 +5,15 @@
 from flask import Blueprint, jsonify, request
 from flask_restx import Namespace, Resource, fields
 from app.models.cookie import Cookie
-
-
-# Create Blueprint
-cookie_routes = Blueprint('cookie_routes', __name__)
-
-# Create RESTX Namespace (for Swagger)
-cookie_ns = Namespace('cookies', description='Operations related to cookies')
+cookie_routes = Blueprint('cookie_routes', __name__) # Create Blueprint
+cookie_ns = Namespace('cookies', description='Operations related to cookies') # Create RESTX Namespace (for Swagger)
 
 
 # In-memory storage for demo 
 # ----------------------------------------------------------------- ##
 cookies = [] 
 
-# Init some data to the storage
+# Init some mock data to the storage
 cookie_1 = Cookie("Chocolate Chip", "A regular chocolate chip cookie", 2.99, 100)
 cookie_2 = Cookie("Sugar Cookie", "A regular sugar cookie", 1.50, 1000)
 cookies.append(cookie_1)
@@ -77,11 +72,14 @@ cookie_output_model = cookie_ns.model('OutputCookie', {
 class CookieList(Resource):
 
 
+
     # GET /cookies (list all exisitng cookies)
     @cookie_ns.marshal_list_with(cookie_output_model)
     @cookie_ns.param('name_search', "Filter by order name.")
     @cookie_ns.param('min_price', 'Filter by minimum price (float)', type='float')
     @cookie_ns.param('max_price', 'Filter by maximum price (float)', type='float')
+    @cookie_ns.param('page', 'Page number (starting from 1)', type='int')
+    @cookie_ns.param('per_page', 'Number of cookies per page', type='int')
     def get(self):
         '''
         Get all cookies in the shop, optionally filtered by name
@@ -92,8 +90,15 @@ class CookieList(Resource):
         min_price = request.args.get('min_price', type=float)
         max_price = request.args.get('max_price', type=float)
 
-        filtered_cookies = []
 
+
+        # Pagination
+        page = request.args.get('page', default=1, type=int)
+        per_page = request.args.get('per_page', default=10, type=int)
+
+
+
+        filtered_cookies = []
         for cookie in cookies:
             # Only apply filter if it was provided
             if name_search and name_search.lower() not in cookie.name.lower():
@@ -106,7 +111,20 @@ class CookieList(Resource):
             # Add cookie if it passes all the filter
             filtered_cookies.append(cookie.to_dict())
 
-        return filtered_cookies, 200
+
+        # Apply pagination
+        if page and per_page:
+            start = (page - 1) * per_page # idx of start cookie
+            end = start + per_page # idx of end cookie
+
+            # Build the requested page
+            paginated_cookies = filtered_cookies[start:end]
+
+            return paginated_cookies, 200
+
+
+        else:
+            return filtered_cookies, 200
     
     
 
