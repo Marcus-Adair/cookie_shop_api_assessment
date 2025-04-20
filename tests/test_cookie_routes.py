@@ -8,7 +8,7 @@ def test_get_all_cookies(client):
 
     data = response.get_json()
     assert isinstance(data, list)
-    assert len(data) >= 2  # since we added two mock cookies
+    assert len(data) == 2  # since we added two mock cookies
 
     assert "name" in data[0]
     assert "description" in data[0]
@@ -131,3 +131,9 @@ def test_delete_cookie(client):
     assert get_resp.status_code == 404
 
 
+
+
+# TODO: add GET /cookie price-filter test(s)
+
+
+# TODO: add GET /cookie name-filter test(s)
