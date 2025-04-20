@@ -14,6 +14,7 @@ class Cookie:
             Constructor for a new Cookie 
         '''
 
+        # TODO; remove this error validation and use Schema instead
         # Validate inputs to new Cookie
         if not isinstance(name, str) or not name:
             raise ValueError("Cookie name must be a non-empty string.")
