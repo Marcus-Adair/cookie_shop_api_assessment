@@ -19,8 +19,8 @@ cookie_ns = Namespace('cookies', description='Operations related to cookies')
 cookies = [] 
 
 # Init some data to the storage
-cookie_1 = Cookie("Chocolate Chip", "A regular chocolate chip cookie", 1.00, 100)
-cookie_2 = Cookie("Sugar Cookie", "A regular sugar cookie", 1.00, 1000)
+cookie_1 = Cookie("Chocolate Chip", "A regular chocolate chip cookie", 2.99, 100)
+cookie_2 = Cookie("Sugar Cookie", "A regular sugar cookie", 1.50, 1000)
 cookies.append(cookie_1)
 cookies.append(cookie_2)
 # ----------------------------------------------------------------- ##
@@ -79,16 +79,34 @@ class CookieList(Resource):
 
     # GET /cookies (list all exisitng cookies)
     @cookie_ns.marshal_list_with(cookie_output_model)
+    @cookie_ns.param('name_search', "Filter by order name.")
+    @cookie_ns.param('min_price', 'Filter by minimum price (float)', type='float')
+    @cookie_ns.param('max_price', 'Filter by maximum price (float)', type='float')
     def get(self):
         '''
-        Get all cookies in the shop
+        Get all cookies in the shop, optionally filtered by name
         '''
 
-        # TODO: add pagination
+        # Get filter parameters or None
+        name_search = request.args.get('name_search')
+        min_price = request.args.get('min_price', type=float)
+        max_price = request.args.get('max_price', type=float)
 
-        # TODO: add optional filtering for price range & name search
+        filtered_cookies = []
 
-        return [cookie.to_dict() for cookie in cookies]
+        for cookie in cookies:
+            # Only apply filter if it was provided
+            if name_search and name_search.lower() not in cookie.name.lower():
+                continue
+            if min_price is not None and cookie.price < min_price:
+                continue
+            if max_price is not None and cookie.price > max_price:
+                continue
+
+            # Add cookie if it passes all the filter
+            filtered_cookies.append(cookie.to_dict())
+
+        return filtered_cookies
     
     
 
@@ -120,11 +138,6 @@ class CookieList(Resource):
 
         # Return the newly added cookie (Response code 201 for successful creation)
         return new_cookie.to_dict(), 201
-
-
-    # TODO: add get_cookies_filter_name()    (search by specific name? or maybe close to?)    (with pagination!!)
-
-    # TODO: add get_cookies_filter_price()   (two params for price ranging)      (with pagination!!)
 
 
 
