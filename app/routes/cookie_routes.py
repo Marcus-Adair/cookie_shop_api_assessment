@@ -30,29 +30,41 @@ cookies.append(cookie_2)
 # DEFINE SCHEMA FOR VALIDATION 
 # ----------------------------------------------------------------- ##
 
-# Model for required input and types
+name_description = 'Name of the cookie'
+name_example = "Sugar Cookie"
+
+description_description = 'Cookie description'
+description_example = "A cookie made out of sugar"
+
+price_description = 'Price of the cookie'
+price_example = 1.99
+
+inventory_description = 'Inventory count'
+inventory_example = 10
+
+# === Input Model for Creating a Cookie === #
 cookie_input_model = cookie_ns.model('InputCookie', {
-    'name': fields.String(required=True, description='Name of the cookie'),
-    'description': fields.String(required=True, description='Cookie description'),
-    'price': fields.Float(required=True, description='Price of the cookie'),
-    'inventory_count': fields.Integer(required=True, description='Inventory count'),
+    'name': fields.String(required=True, description=name_description, example=name_example),
+    'description': fields.String(required=True, description=description_description, example=description_example),
+    'price': fields.Float(required=True, description=price_description, example=price_example),
+    'inventory_count': fields.Integer(required=True, description=inventory_description, example=inventory_example),
 })
 
-# Swagger model for output
+# === Model for Patching/Updating a Cookie === #
+cookie_patch_model = cookie_ns.model('CookiePatch', {
+    'name': fields.String(description=name_description, example=name_example),
+    'description': fields.String(description=description_description, example=description_example),
+    'price': fields.Float(description=price_description, example=price_example),
+    'inventory_count': fields.Integer(description=inventory_description, example=inventory_example),
+})
+
+# === Output Model for Cookie === #
 cookie_output_model = cookie_ns.model('OutputCookie', {
     'id': fields.Integer(required=True, description='ID of the cookie'),
-    'name': fields.String(required=True, description='Name of the cookie'),
-    'description': fields.String(required=True, description='Cookie description'),
-    'price': fields.Float(required=True, description='Price of the cookie'),
-    'inventory_count': fields.Integer(required=True, description='Inventory count'),
-})
-
-
-cookie_patch_model = cookie_ns.model('CookiePatch', {
-    'name': fields.String(description='Name of the cookie'),
-    'description': fields.String(description='Cookie description'),
-    'price': fields.Float(description='Price of the cookie'),
-    'inventory_count': fields.Integer(description='Inventory count'),
+    'name': fields.String(required=True, description=name_description, example=name_example),
+    'description': fields.String(required=True, description=description_description, example=description_example),
+    'price': fields.Float(required=True, description=price_description, example=price_example),
+    'inventory_count': fields.Integer(required=True, description=inventory_description, example=inventory_example),
 })
 
 # ----------------------------------------------------------------- ##
@@ -73,6 +85,8 @@ class CookieList(Resource):
         '''
 
         # TODO: add pagination
+
+        # TODO: add optional filtering for price range & name search
 
         return [cookie.to_dict() for cookie in cookies]
     
@@ -114,7 +128,7 @@ class CookieList(Resource):
 
 
 
-
+# Order Endpoint using IDs
 @cookie_ns.route('/<int:id>')
 @cookie_ns.param('id', 'The unique ID of the cookie')
 class CookieByID(Resource):

@@ -17,7 +17,8 @@ class Order:
         CANCELLED = 3  
 
 
-    def __init__(self, cookies_and_quantities, order_date, deliver_date, status):
+    def __init__(self, cookies_and_quantities: dict, order_date: datetime, deliver_date: datetime, status: OrderStatus):
+
         '''
             Constructor for a new Order 
         '''
@@ -132,4 +133,4 @@ class Order:
     # ------------------------ #
 
 
-    # TODO: add more? 
+    # TODO: Add method to calculate price of order (do get request to the cookies to get their prices )
