@@ -30,7 +30,7 @@ orders.append(order_1)
 
 # Vars to reuse among models
 cookies_and_quantities_description = 'Dictionary mapping cookie IDs (non-negative integers) to quantities (non-negative integers)'
-cookies_and_quantities_example = {1: 12, 3: 5}
+cookies_and_quantities_example = {0: 12, 1: 5}
 
 
 order_date_description = 'The datetime when the order was placed'
