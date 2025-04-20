@@ -9,7 +9,7 @@ from app.routes.order_routes import order_routes, order_ns
 api = Api(
     title="Cookie Shop API",
     version="1.0",
-    description="Cookie Shop API Assessment"
+    description="Cookie Shop API Assessment",
 )
 
 def create_app():

@@ -8,18 +8,17 @@ from datetime import datetime
 class Order:
     
     # Shared Class Variables
-    _id_counter = 1  # Class-level counter to give orders unique IDs
+    _id_counter = 0  # Class-level counter to give orders unique IDs
 
     # Statuses for an order
     class OrderStatus(Enum):
-        PENDING = 0
-        COOKING = 1
-        AWAITING_PICKUP = 2
-        COMPLETED = 3
-        CANCELLED = 4  
+        PENDING = 1
+        DELIVERED = 2
+        CANCELLED = 3  
 
 
-    def __init__(self, cookies_and_quantities, order_date, pickup_date, status):
+    def __init__(self, cookies_and_quantities: dict, order_date: datetime, deliver_date: datetime, status: OrderStatus):
+
         '''
             Constructor for a new Order 
         '''
@@ -41,8 +40,8 @@ class Order:
         if not isinstance(order_date, datetime):  # Ensure it's a datetime object
             raise ValueError(f"order_date must be a datetime object, got {type(order_date)} instead.")
 
-        if not isinstance(pickup_date, datetime):  # Ensure it's a datetime object
-            raise ValueError(f"pickup_date must be a datetime object, got {type(pickup_date)} instead.")
+        if not isinstance(deliver_date, datetime):  # Ensure it's a datetime object
+            raise ValueError(f"deliver_date must be a datetime object, got {type(deliver_date)} instead.")
 
         if not isinstance(status, Order.OrderStatus):  # Ensure it's an instance of OrderStatus Enum
             raise ValueError(f"status must be an instance of OrderStatus Enum, got {type(status)} instead.")
@@ -54,7 +53,7 @@ class Order:
 
         self.cookies_and_quantities = cookies_and_quantities    # Map (Cookie ID --> Number)
         self.order_date = order_date    # Datetime
-        self.pickup_date = pickup_date    # Datetime
+        self.deliver_date = deliver_date    # Datetime
         self.status = status    # An instance of OrderStatus Enum
 
 
@@ -66,7 +65,7 @@ class Order:
             "id": self.id,
             "cookies_and_quantities": self.cookies_and_quantities,
             "order_date": self.order_date.isoformat() if isinstance(self.order_date, datetime) else self.order_date,
-            "pickup_date": self.pickup_date.isoformat() if isinstance(self.pickup_date, datetime) else self.pickup_date,
+            "deliver_date": self.deliver_date.isoformat() if isinstance(self.deliver_date, datetime) else self.deliver_date,
             "status": self.status.name,
         }
     
@@ -79,7 +78,7 @@ class Order:
                 f"Cookies/Quantities: {self.cookies_and_quantities}, "
                 f"Status: {self.status.name}, "
                 f"Ordered: {self.order_date.strftime('%Y-%m-%d %H:%M:%S')}, "
-                f"Pickup: {self.pickup_date.strftime('%Y-%m-%d %H:%M:%S')})")
+                f"Deliver: {self.deliver_date.strftime('%Y-%m-%d %H:%M:%S')})")
 
 
 
@@ -116,11 +115,11 @@ class Order:
         else:
             raise ValueError(f"order_date must be a datetime object, got {type(order_date)} instead.")
 
-    def set_pickup_date(self, pickup_date):
-        if isinstance(pickup_date, datetime):  # Ensure it's a datetime object
-            self.pickup_date = pickup_date
+    def set_deliver_date(self, deliver_date):
+        if isinstance(deliver_date, datetime):  # Ensure it's a datetime object
+            self.deliver_date = deliver_date
         else:
-            raise ValueError(f"pickup_date must be a datetime object, got {type(pickup_date)} instead.")
+            raise ValueError(f"deliver_date must be a datetime object, got {type(deliver_date)} instead.")
 
     def set_status(self, status):
         if isinstance(status, Order.OrderStatus):  # Ensure it's an instance of OrderStatus Enum
@@ -134,4 +133,4 @@ class Order:
     # ------------------------ #
 
 
-    # TODO: add more? 
+    # TODO: Add method to calculate price of order (do get request to the cookies to get their prices )

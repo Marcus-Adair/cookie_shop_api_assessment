@@ -18,7 +18,6 @@ cookie_ns = Namespace('cookies', description='Operations related to cookies')
 # ----------------------------------------------------------------- ##
 cookies = [] 
 
-
 # Init some data to the storage
 cookie_1 = Cookie("Chocolate Chip", "A regular chocolate chip cookie", 1.00, 100)
 cookie_2 = Cookie("Sugar Cookie", "A regular sugar cookie", 1.00, 1000)
@@ -28,36 +27,212 @@ cookies.append(cookie_2)
 
 
 
-# Swagger model for input/output
-cookie_model = cookie_ns.model('Cookie', {
-    'name': fields.String(required=True, description='Name of the cookie'),
-    'description': fields.String(required=True, description='Cookie description'),
-    'price': fields.Float(required=True, description='Price of the cookie'),
-    'inventory_count': fields.Integer(required=True, description='Inventory count'),
+# DEFINE SCHEMA FOR VALIDATION 
+# ----------------------------------------------------------------- ##
+
+name_description = 'Name of the cookie'
+name_example = "Sugar Cookie"
+
+description_description = 'Cookie description'
+description_example = "A cookie made out of sugar"
+
+price_description = 'Price of the cookie'
+price_example = 1.99
+
+inventory_description = 'Inventory count'
+inventory_example = 10
+
+# === Input Model for Creating a Cookie === #
+cookie_input_model = cookie_ns.model('InputCookie', {
+    'name': fields.String(required=True, description=name_description, example=name_example),
+    'description': fields.String(required=True, description=description_description, example=description_example),
+    'price': fields.Float(required=True, description=price_description, example=price_example),
+    'inventory_count': fields.Integer(required=True, description=inventory_description, example=inventory_example),
 })
 
+# === Model for Patching/Updating a Cookie === #
+cookie_patch_model = cookie_ns.model('CookiePatch', {
+    'name': fields.String(description=name_description, example=name_example),
+    'description': fields.String(description=description_description, example=description_example),
+    'price': fields.Float(description=price_description, example=price_example),
+    'inventory_count': fields.Integer(description=inventory_description, example=inventory_example),
+})
+
+# === Output Model for Cookie === #
+cookie_output_model = cookie_ns.model('OutputCookie', {
+    'id': fields.Integer(required=True, description='ID of the cookie'),
+    'name': fields.String(required=True, description=name_description, example=name_example),
+    'description': fields.String(required=True, description=description_description, example=description_example),
+    'price': fields.Float(required=True, description=price_description, example=price_example),
+    'inventory_count': fields.Integer(required=True, description=inventory_description, example=inventory_example),
+})
+
+# ----------------------------------------------------------------- ##
 
 
-# GET /cookies (list all)
+
+
+
 @cookie_ns.route('/')
 class CookieList(Resource):
-    @cookie_ns.marshal_list_with(cookie_model)
+
+
+    # GET /cookies (list all exisitng cookies)
+    @cookie_ns.marshal_list_with(cookie_output_model)
     def get(self):
         '''
-            Get all cookies in the shop
+        Get all cookies in the shop
         '''
+
+        # TODO: add pagination
+
+        # TODO: add optional filtering for price range & name search
+
         return [cookie.to_dict() for cookie in cookies]
+    
+    
+
+    # POST /cookies (add a new cookie)
+    @cookie_ns.expect(cookie_input_model, validate=True)
+    @cookie_ns.marshal_with(cookie_output_model, code=201)
+    def post(self):
+        '''
+        Add a new cookie to the shop
+        '''
+
+        # Get data from the request body
+        data = request.get_json()
+
+        # Extract data from request (or get None)
+        name = data.get('name')
+        description = data.get('description')
+        price = data.get('price')
+        inventory_count = data.get('inventory_count')
+
+        # Create a new Cookie instance
+        try:
+            new_cookie = Cookie(name=name, description=description, price=price, inventory_count=inventory_count)
+        except ValueError as e:
+            return {'message': str(e)}, 400  # Return the validation error from the Cookie constructor
+
+        # Add the new cookie to the list
+        cookies.append(new_cookie)
+
+        # Return the newly added cookie (Response code 201 for successful creation)
+        return new_cookie.to_dict(), 201
+
+
+    # TODO: add get_cookies_filter_name()    (search by specific name? or maybe close to?)    (with pagination!!)
+
+    # TODO: add get_cookies_filter_price()   (two params for price ranging)      (with pagination!!)
+
+
+
+# Order Endpoint using IDs
+@cookie_ns.route('/<int:id>')
+@cookie_ns.param('id', 'The unique ID of the cookie')
+class CookieByID(Resource):
+
+    # GET /cookies/<int:id>     (get specific cookie by id)
+    @cookie_ns.response(200, 'Success', cookie_output_model)
+    @cookie_ns.response(404, 'Cookie not found')
+    def get(self, id):
+        '''
+        Get a single cookie by its ID
+        '''
+        for cookie in cookies:
+            if cookie.id == id:
+                return cookie.to_dict(), 200
+        
+        # Return error message if cookie not found
+        return {'message': f'Cookie with ID {id} not found'}, 404
+
+
+
+
+    # PATCH /cookies/<int:id>    (partial (or full) update to a cookie)
+    @cookie_ns.expect(cookie_patch_model, validate=True)
+    @cookie_ns.response(200, 'Success', cookie_output_model)
+    @cookie_ns.response(404, 'Cookie not found')
+    def patch(self, id):
+        '''
+        Partially update a cookie by its ID
+        '''
+
+        # Get data from the request body
+        data = request.get_json()
+
+        cookie_to_update = None
+        cookie_idx = 0
+
+        # Find the cookie with the matching ID and save the index its at in the list
+        for cookie in cookies:
+            if cookie.id == id:
+                cookie_to_update = cookie
+                break
+            cookie_idx +=1
+
+        if cookie_to_update is None:
+            return {'message': f'Cookie with ID {id} not found.'}, 404
+
+        # Update only the fields present
+        if 'name' in data:
+            cookie_to_update.set_name(data['name'])
+        if 'description' in data:
+            cookie_to_update.set_description(data['description'])
+        if 'price' in data:
+            cookie_to_update.set_price(data['price'])
+        if 'inventory_count' in data:
+            cookie_to_update.set_inventory_count(data['inventory_count'])
+
+        # Update the cookie
+        cookies[cookie_idx] = cookie_to_update
+
+        return cookie_to_update.to_dict(), 200
+
+
+
+    # DELETE /cookies/<int:id>      (delete a specific cookie by its ID)
+    @cookie_ns.response(204, 'Cookie deleted successfully')
+    @cookie_ns.response(404, 'Cookie not found')
+    def delete(self, id):
+        '''
+        Delete a cookie by its ID
+        '''
+        
+        cookie_to_delete = None
+        cookie_idx = 0
+
+        # Find the cookie with the matching ID and save the index its at in the list
+        for cookie in cookies:
+            if cookie.id == id:
+                cookie_to_delete = cookie
+                break
+
+            cookie_idx +=1
+
+        if cookie_to_delete is None:
+            return {'message': f'Cookie with ID {id} not found.'}, 404
+        else:
+            # Remove the cookie from the list
+            cookies.pop(cookie_idx)
+
+        # Return a 204 No Content response on success
+        return '', 204
     
 
 
-# TODO add_cookie()
 
-# TODO: add get_cookie_by_id()          (get single cookie by ID)
 
-# TODO: add get_cookies_filter_name()    (search by specific name? or maybe close to?)
 
-# TODO: add get_cookies_filter_price()   (two params for price ranging
 
-# TODO: add update_cookie()         update exisitng cookie
 
-# TODO: delete_cookie()         (delete by ID)
+
+
+
+
+
+
+
+
+
