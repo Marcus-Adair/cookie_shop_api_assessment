@@ -13,7 +13,7 @@ order_ns = Namespace('orders', description='Operations related to orders') # Cre
 
 # In-memory storage for demo 
 # ----------------------------------------------------------------- ##
-orders = [] 
+orders = {}     # Maps Order IDs to Order Objects
 
 # Init some mock data to the storage
 dt = datetime.fromisoformat('2025-01-20T15:30:00Z'.replace('Z', '+00:00'))
@@ -21,7 +21,8 @@ dt2 = datetime.fromisoformat('2025-02-02T15:30:00Z'.replace('Z', '+00:00'))
 pending_status = getattr(Order.OrderStatus, "PENDING")
 
 order_1 = Order({1: 5, 0: 2}, dt, dt2, pending_status)
-orders.append(order_1)
+
+orders[order_1.id] = order_1
 # ----------------------------------------------------------------- ##
 
 
@@ -135,7 +136,8 @@ class OrderList(Resource):
 
         filtered_orders = []
 
-        for order in orders:
+        # for order in orders:
+        for order in orders.values():
 
             # Filter by order status
             if status_search and status_search.upper() != order.status.name.upper():
@@ -219,7 +221,7 @@ class OrderList(Resource):
             return {'message': str(e)}, 400  # Return the validation error from the Order constructor
 
         # Add the new order to the list
-        orders.append(new_order)
+        orders[new_order.id] = new_order
 
         # Return the newly added order (Response code 201 for successful creation)
         return new_order.to_dict(), 201
@@ -240,13 +242,13 @@ class OrderByID(Resource):
         '''
         Get a single order by its ID
         '''
-        for order in orders:
-            if order.id == id:
-                return order.to_dict(), 200
-        
-        # Return error message if order not found
-        return {'message': f'Order with ID {id} not found'}, 404
+        if id in orders:
+            return orders[id].to_dict(), 200
     
+        else:
+            return {'message': f'Order with ID {id} not found'}, 404
+
+
 
 
     # PATCH /orders/<int:id>    (update the status of an order)
@@ -257,7 +259,6 @@ class OrderByID(Resource):
         '''
         Update an order's status by its ID
         '''
-
 
         # Get data from the request body
         data = request.get_json()
@@ -273,17 +274,12 @@ class OrderByID(Resource):
                 "CANCELLED": []
             }
 
-            # Find the order with the matching ID and save the index its at in the list
-            order_to_update = None
-            order_idx = 0
-            for order in orders:
-                if order.id == id:
-                    order_to_update = order
-                    break
-                order_idx +=1
 
-            if order_to_update is None:
+            if id in orders:
+                order_to_update = orders[id]
+            else:
                 return {'message': f'order with ID {id} not found.'}, 404
+
 
             # Get status to try to transition to and the current status
             status_given = data['status'].upper() 
@@ -303,8 +299,9 @@ class OrderByID(Resource):
 
     
             # Update the order
-            orders[order_idx] = order_to_update
+            orders[id] = order_to_update
 
+            # Return updated order
             return order_to_update.to_dict(), 200
         
         else:
