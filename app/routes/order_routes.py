@@ -196,8 +196,8 @@ class OrderList(Resource):
         data = request.get_json()
 
         # Extract data from request (or get None)
-        cookies_and_quantities = data.get('cookies_and_quantities')
-        deliver_date = data.get('deliver_date')
+        cookies_and_quantities = data.get('cookies_and_quantities', type=dict)
+        deliver_date = data.get('deliver_date', type=str)
 
 
         # Create valid format for Order constuctor from input JSON
@@ -254,6 +254,7 @@ class OrderByID(Resource):
     # PATCH /orders/<int:id>    (update the status of an order)
     @order_ns.expect(order_patch_model, validate=True)
     @order_ns.response(200, 'Success', order_output_model)
+    @order_ns.response(400, 'Invalid input data')
     @order_ns.response(404, 'Order not found')
     def patch(self, id):
         '''
@@ -262,8 +263,13 @@ class OrderByID(Resource):
 
         # Get data from the request body
         data = request.get_json()
+        if data is None:
+            return {'message': 'Invalid or missing JSON in request body'}, 400
+        status_given = data.get('status')
+            
 
-        if 'status' in data:
+        if status_given:
+            status_given = status_given.upper()
 
             # Map to define which state can transition to which
             valid_transitions = {
@@ -281,8 +287,6 @@ class OrderByID(Resource):
                 return {'message': f'order with ID {id} not found.'}, 404
 
 
-            # Get status to try to transition to and the current status
-            status_given = data['status'].upper() 
             current_status = order_to_update.status.name.upper()
 
             # Make sure requested status is valid

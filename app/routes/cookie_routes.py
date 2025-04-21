@@ -76,19 +76,20 @@ class CookieList(Resource):
 
 
     # GET /cookies (list all exisitng cookies)
-    @cookie_ns.marshal_list_with(cookie_output_model)
+    @cookie_ns.response(200, 'Success', cookie_output_model)
     @cookie_ns.param('name_search', "Filter by order name.")
     @cookie_ns.param('min_price', 'Filter by minimum price (float)', type='float')
     @cookie_ns.param('max_price', 'Filter by maximum price (float)', type='float')
     @cookie_ns.param('page', 'Page number (starting from 1)', type='int')
     @cookie_ns.param('per_page', 'Number of cookies per page', type='int')
+    @cookie_ns.response(400, 'Invalid input data')
     def get(self):
         '''
         Get all cookies in the shop, optionally filtered by name
         '''
 
         # Get filter parameters or None
-        name_search = request.args.get('name_search')
+        name_search = request.args.get('name_search', type=str)
         min_price = request.args.get('min_price', type=float)
         max_price = request.args.get('max_price', type=float)
 
@@ -114,12 +115,14 @@ class CookieList(Resource):
 
         # Apply pagination
         if page and per_page:
+            if page < 1 or per_page < 1:
+                return {'message': 'page and per_page must be positive integers'}, 400
+
             start = (page - 1) * per_page # idx of start cookie
             end = start + per_page # idx of end cookie
 
             # Build the requested page
             paginated_cookies = filtered_cookies[start:end]
-
             return paginated_cookies, 200
 
         # No pagination if not requested
@@ -131,6 +134,7 @@ class CookieList(Resource):
     # POST /cookies (add a new cookie)
     @cookie_ns.expect(cookie_input_model, validate=True)
     @cookie_ns.marshal_with(cookie_output_model, code=201)
+    @cookie_ns.response(400, 'Invalid input data')
     def post(self):
         '''
         Add a new cookie to the shop
@@ -138,6 +142,9 @@ class CookieList(Resource):
 
         # Get data from the request body
         data = request.get_json()
+        if data is None:
+            return {'message': 'Invalid or missing JSON in request body'}, 400
+
 
         # Extract data from request (or get None)
         name = data.get('name')
@@ -184,6 +191,7 @@ class CookieByID(Resource):
     # PATCH /cookies/<int:id>    (partial (or full) update to a cookie)
     @cookie_ns.expect(cookie_patch_model, validate=True)
     @cookie_ns.response(200, 'Success', cookie_output_model)
+    @cookie_ns.response(400, 'Invalid input data')
     @cookie_ns.response(404, 'Cookie not found')
     def patch(self, id):
         '''
@@ -192,7 +200,8 @@ class CookieByID(Resource):
 
         # Get data from the request body
         data = request.get_json()
-
+        if data is None:
+            return {'message': 'Invalid or missing JSON in request body'}, 400
 
         # See if the cookie exists 
         if id in cookies:
