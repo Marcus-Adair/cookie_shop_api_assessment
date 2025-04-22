@@ -179,12 +179,8 @@ class CookieByID(Resource):
         '''
 
         if id in cookies:
-            cookie = cookies[id]
+            return cookies[id].to_dict(), 200
 
-            if cookie:
-                return cookie.to_dict(), 200
-            else:
-                return {'message': f'Error returning Cookie with ID {id}'}, 404
         else:
             return {'message': f'Cookie with ID {id} not found'}, 404
 
@@ -210,8 +206,6 @@ class CookieByID(Resource):
         # See if the cookie exists 
         if id in cookies:
 
-            cookie_to_update = cookies[id]
-
             # Extract data from request (or get None)
             name = data.get('name')
             description = data.get('description')
@@ -219,10 +213,10 @@ class CookieByID(Resource):
             inventory_count = data.get('inventory_count')
 
             # Update the cookie's details
-            cookies[id] = cookie_to_update.update_cookie(name, description, price, inventory_count)
+            cookies[id].update_cookie(name, description, price, inventory_count)
 
             # Return updated cookie
-            return cookie_to_update.to_dict(), 200
+            return cookies[id].to_dict(), 200
 
         else:
             return {'message': f'Cookie with ID {id} not found.'}, 404
