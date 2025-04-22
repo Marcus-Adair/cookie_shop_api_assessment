@@ -213,10 +213,13 @@ class CookieByID(Resource):
             inventory_count = data.get('inventory_count')
 
             # Update the cookie's details
-            cookies[id].update_cookie(name, description, price, inventory_count)
+            updated = cookies[id].update_cookie(name, description, price, inventory_count)
 
             # Return updated cookie
-            return cookies[id].to_dict(), 200
+            if updated:
+                return cookies[id].to_dict(), 200
+            else:
+                return {'message': 'Invalid or missing JSON in request body'}, 400
 
         else:
             return {'message': f'Cookie with ID {id} not found.'}, 404

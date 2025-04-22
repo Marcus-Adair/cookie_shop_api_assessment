@@ -106,14 +106,23 @@ class Cookie:
         '''
             Update a cookies parameters. Optionally update parameters of choosing.
         '''
+
+        updated = False
+
         if name:
             self.name = name
+            updated = True
         if description:
             self.description = description
+            updated = True
         if price is not None: 
             self.price = price
+            updated = True
         if inventory_count is not None:
             self.inventory_count = inventory_count
+            updated = True
+        
+        return updated
 
 
 

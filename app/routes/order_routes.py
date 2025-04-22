@@ -185,10 +185,13 @@ class OrderList(Resource):
 
 
         # Create valid format for Order constuctor from input JSON
-        cookies_and_quantities_dict = {
-            int(key): value
-            for key, value in cookies_and_quantities.items()
-        }
+        try:
+            cookies_and_quantities_dict = {
+                int(key): value
+                for key, value in cookies_and_quantities.items()
+            }
+        except ValueError as e:
+            return {'message': f"Error with cookie order: {str(e)}"}, 400 
 
 
         # TODO: make sure all of the IDs are valid by calling /cookies and checking IDs
