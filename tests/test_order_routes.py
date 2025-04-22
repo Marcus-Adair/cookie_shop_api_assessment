@@ -1,4 +1,4 @@
-import json
+import sys
 from datetime import datetime, timedelta
 
 
@@ -104,12 +104,55 @@ def test_patch_order_valid_transition(client):
     assert response.status_code == 400
 
 
-# TODO: test create an order
 
-# TODO: test delete by id
+def test_create_order(client):
+    order_data = {
+        "cookies_and_quantities": {     # Order is (2.99*11)+(1.50*6) (32.89+9)= 41.89
+            "0": 11,
+            "1": 6
+        },
+        "deliver_date": "2025-04-21T15:30:00Z"
+    }
+    response = client.post('/orders/', json=order_data)
 
-# TODO: test order filtering
+    # Assert status code
+    assert response.status_code == 201
 
-# TODO: test status transition validation
+    # Parse response JSON
+    data = response.get_json()
 
-# TODO: etc
+    # Basic response structure checks
+    assert "id" in data
+    assert "cookies_and_quantities" in data
+    assert "deliver_date" in data
+
+    # Check that data matches what was sent
+    assert data["cookies_and_quantities"] == order_data["cookies_and_quantities"]
+    assert data["deliver_date"] == order_data["deliver_date"].replace('Z', '+00:00')
+
+
+
+
+def test_get_all_orders_filter_small_amount(client):
+
+    max_amount = 1.00
+
+    response = client.get(f'/orders/?max_total_amount={max_amount}')
+    assert response.status_code == 200
+
+    data = response.get_json()
+    assert isinstance(data, list)
+    assert len(data) == 0  
+
+
+
+def test_get_all_orders_filter_big_amount(client):
+
+    max_amount = 10000
+
+    response = client.get(f'/orders/?max_total_amount={max_amount}')
+    assert response.status_code == 200
+
+    data = response.get_json()
+    assert isinstance(data, list)
+    assert len(data) == 2 # There should be two orders after the one was created  

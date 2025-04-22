@@ -3,6 +3,8 @@
 '''
 from enum import Enum
 from datetime import datetime
+from app.routes.cookie_routes import CookieByID
+from app.models.cookie import Cookie
 
 
 class Order:
@@ -32,7 +34,6 @@ class Order:
 
         # Check that k-v pairs are valid in cookies/quantities dict
         for key, value in cookies_and_quantities.items():
-
             if not isinstance(key, int) or key < 0:
                 raise ValueError(f"Each key value must be a non-negative integer. Found {key}.")
             
@@ -61,7 +62,7 @@ class Order:
 
     def to_dict(self):
         """
-            Convert the odrder object to a dictionary.
+            Convert the order object to a dictionary.
         """
         return {
             "id": self.id,
@@ -71,17 +72,6 @@ class Order:
             "status": self.status.name,
         }
     
-
-    def __str__(self):
-        """
-        Return a string representation of the Order object.
-        """
-        return (f"Order(ID: {self.id}, "
-                f"Cookies/Quantities: {self.cookies_and_quantities}, "
-                f"Status: {self.status.name}, "
-                f"Ordered: {self.order_date.strftime('%Y-%m-%d %H:%M:%S')}, "
-                f"Deliver: {self.deliver_date.strftime('%Y-%m-%d %H:%M:%S')})")
-
 
 
     # Setter Methods
@@ -99,7 +89,6 @@ class Order:
 
             # Check that k-v pairs are valid
             for key, value in cookies_and_quantities.items():
-
                 if not isinstance(key, int) or key < 0:
                     raise ValueError(f"Each key value must be a non-negative integer. Found {key}.")
                 
@@ -134,5 +123,33 @@ class Order:
     # Helper Methods: 
     # ------------------------ #
 
+    def get_order_total_amount(self):
+        '''
+        Calculate the total price of an order.
+        '''
+        order_total_amount = 0
 
-    # TODO: Add method to calculate price of order (do get request to the cookies to get their prices )
+        for cookie_id, cookie_quantity in self.cookies_and_quantities.items():
+
+            # Get the 
+            response_data, status_code = CookieByID().get(cookie_id)
+            if status_code == 200 and response_data:
+                try:
+                    cookie = Cookie(
+                        name=response_data['name'],
+                        description=response_data['description'],
+                        price=response_data['price'],
+                        inventory_count=response_data['inventory_count']
+                    )
+
+
+                    # Add to total
+                    order_total_amount += (cookie.price * cookie_quantity)
+
+                except Exception as e:
+                    print(f"Error creating Cookie (id:{cookie_id}) object: {e}")
+
+            else:
+                print(f"No data or request failed when getting Cookie (id:{cookie_id}) details.")
+
+        return round(order_total_amount, 2)

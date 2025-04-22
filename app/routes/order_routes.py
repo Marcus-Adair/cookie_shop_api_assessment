@@ -2,18 +2,19 @@
     Cookie Routes - with Swagger Namespace
 '''
 
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, request
 from flask_restx import Namespace, Resource, fields
 from datetime import datetime
 from app.models.order import Order
-from app.routes.cookie_routes import CookieByID
 order_routes = Blueprint('order_routes', __name__) # Create Blueprint
-order_ns = Namespace('orders', description='Operations related to orders') # Create RESTX Namespace (for Swagger)
+order_ns = Namespace('orders', description='Operations related to orders') # Create RESTX Namespace
+##############################################################################################################
+
 
 
 # In-memory storage for demo 
 # ----------------------------------------------------------------- ##
-orders = [] 
+orders = {}     # Maps Order IDs to Order Objects
 
 # Init some mock data to the storage
 dt = datetime.fromisoformat('2025-01-20T15:30:00Z'.replace('Z', '+00:00'))
@@ -21,7 +22,8 @@ dt2 = datetime.fromisoformat('2025-02-02T15:30:00Z'.replace('Z', '+00:00'))
 pending_status = getattr(Order.OrderStatus, "PENDING")
 
 order_1 = Order({1: 5, 0: 2}, dt, dt2, pending_status)
-orders.append(order_1)
+
+orders[order_1.id] = order_1
 # ----------------------------------------------------------------- ##
 
 
@@ -92,7 +94,7 @@ order_output_model = order_ns.model('OuputOrder', {
         description=status_description,
         enum=status_enum,
         example=status_example
-    ),
+    )
 })
 
 
@@ -122,11 +124,11 @@ class OrderList(Resource):
         '''
 
         # Get search params
-        status_search = request.args.get('status', None)
+        status_search = request.args.get('status', type=str)
         min_total_amount = request.args.get('min_total_amount', type=float)
         max_total_amount = request.args.get('max_total_amount', type=float)
-        min_date = request.args.get('min_date')
-        max_date = request.args.get('max_date')
+        min_date = request.args.get('min_date', type=str)
+        max_date = request.args.get('max_date', type=str)
         if min_date:
             min_date = datetime.fromisoformat(min_date.replace('Z', '+00:00'))
         if max_date:
@@ -135,7 +137,7 @@ class OrderList(Resource):
 
         filtered_orders = []
 
-        for order in orders:
+        for order in orders.values():
 
             # Filter by order status
             if status_search and status_search.upper() != order.status.name.upper():
@@ -143,38 +145,22 @@ class OrderList(Resource):
 
 
             # Filter by the order date
-            order_date = order.order_date # The date the order was made
-            if min_date is not None and order_date < min_date:
+            if min_date is not None and order.order_date < min_date:
                 continue
-            if max_date is not None and order_date > max_date:
+            if max_date is not None and order.order_date > max_date:
                 continue
 
 
-            # If we want to filter by order's total amount
-            total_amount = 0
+            # Filter by price
             if min_total_amount or max_total_amount:
 
-                # For each cookie-quantity combo in the order
-                for cookie_id, cookie_quantity in order.cookies_and_quantities.items():
+                total_order_amount = order.get_order_total_amount()
 
-                    # Get the cookie details 
-                    response_data, status_code = CookieByID().get(cookie_id)
-                    if status_code == 200 and response_data:
-                        cookie_price = response_data.get('price')
-                        if cookie_price:
-
-                            # Calculate order amount for current cookie
-                            total_amount += (cookie_price * cookie_quantity) 
-
-                    else:
-                        print("No data or request failed when when getting cookie amounts")
-
-
-            # Filter by the total cookie amount in the order
-            if min_total_amount is not None and total_amount < min_total_amount:
-                continue
-            if max_total_amount is not None and total_amount > max_total_amount:
-                continue
+                # Filter by the total cookie amount in the order
+                if min_total_amount is not None and total_order_amount < min_total_amount:
+                    continue
+                if max_total_amount is not None and total_order_amount > max_total_amount:
+                    continue
 
 
             filtered_orders.append(order.to_dict()) # Add valid orders
@@ -219,7 +205,7 @@ class OrderList(Resource):
             return {'message': str(e)}, 400  # Return the validation error from the Order constructor
 
         # Add the new order to the list
-        orders.append(new_order)
+        orders[new_order.id] = new_order
 
         # Return the newly added order (Response code 201 for successful creation)
         return new_order.to_dict(), 201
@@ -240,29 +226,34 @@ class OrderByID(Resource):
         '''
         Get a single order by its ID
         '''
-        for order in orders:
-            if order.id == id:
-                return order.to_dict(), 200
-        
-        # Return error message if order not found
-        return {'message': f'Order with ID {id} not found'}, 404
+        if id in orders:
+            return orders[id].to_dict(), 200
     
+        else:
+            return {'message': f'Order with ID {id} not found'}, 404
+
+
 
 
     # PATCH /orders/<int:id>    (update the status of an order)
     @order_ns.expect(order_patch_model, validate=True)
     @order_ns.response(200, 'Success', order_output_model)
+    @order_ns.response(400, 'Invalid input data')
     @order_ns.response(404, 'Order not found')
     def patch(self, id):
         '''
         Update an order's status by its ID
         '''
 
-
         # Get data from the request body
         data = request.get_json()
+        if data is None:
+            return {'message': 'Invalid or missing JSON in request body'}, 400
+        status_given = data.get('status')
+            
 
-        if 'status' in data:
+        if status_given:
+            status_given = status_given.upper()
 
             # Map to define which state can transition to which
             valid_transitions = {
@@ -273,20 +264,13 @@ class OrderByID(Resource):
                 "CANCELLED": []
             }
 
-            # Find the order with the matching ID and save the index its at in the list
-            order_to_update = None
-            order_idx = 0
-            for order in orders:
-                if order.id == id:
-                    order_to_update = order
-                    break
-                order_idx +=1
 
-            if order_to_update is None:
+            if id in orders:
+                order_to_update = orders[id]
+            else:
                 return {'message': f'order with ID {id} not found.'}, 404
 
-            # Get status to try to transition to and the current status
-            status_given = data['status'].upper() 
+
             current_status = order_to_update.status.name.upper()
 
             # Make sure requested status is valid
@@ -303,8 +287,9 @@ class OrderByID(Resource):
 
     
             # Update the order
-            orders[order_idx] = order_to_update
+            orders[id] = order_to_update
 
+            # Return updated order
             return order_to_update.to_dict(), 200
         
         else:

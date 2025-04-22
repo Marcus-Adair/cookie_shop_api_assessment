@@ -1,6 +1,7 @@
 '''
     Class to model a Cookie object
 '''
+from typing import Optional
 
 class Cookie:
     
@@ -36,7 +37,7 @@ class Cookie:
         # Cookie details
         self.name = name    # String
         self.description = description  # String
-        self.price = price     # Float
+        self.price = round(price, 2)     # Float
         self.inventory_count = inventory_count   # Integer
 
 
@@ -52,13 +53,6 @@ class Cookie:
             "price": self.price,
             "inventory_count": self.inventory_count
         }
-    
-
-    def __str__(self):
-        '''
-            ToString method for printing the Cookie details
-        '''
-        return f"Cookie(Name: {self.name}, Price: ${self.price:.2f}, Inventory: {self.inventory_count}, ID: {self.id})"
     
 
     # Setter Methods
@@ -96,3 +90,38 @@ class Cookie:
             raise ValueError("Cookie inventory count cannot be negative.")
         
         self.inventory_count = inventory_count
+
+
+
+    # Helper Methods: 
+    # ------------------------ #
+
+
+
+    def update_cookie(
+        self,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        price: Optional[float] = None,
+        inventory_count: Optional[int] = None
+    ):
+        '''
+            Update a cookies parameters. Optionally update parameters of choosing.
+        '''
+        if name:
+            self.name = name
+        if description:
+            self.description = description
+        if price is not None: 
+            self.price = price
+        if inventory_count is not None:
+            self.inventory_count = inventory_count
+
+
+
+
+    def out_of_inventory(self):
+        '''
+            Returns False if the shop is out of this cookie and True if there are cookies
+        '''
+        return self.inventory_count == 0

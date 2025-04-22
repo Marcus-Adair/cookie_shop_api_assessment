@@ -7,17 +7,21 @@ from flask_restx import Namespace, Resource, fields
 from app.models.cookie import Cookie
 cookie_routes = Blueprint('cookie_routes', __name__) # Create Blueprint
 cookie_ns = Namespace('cookies', description='Operations related to cookies') # Create RESTX Namespace
+##############################################################################################################
+
 
 
 # In-memory storage for demo 
 # ----------------------------------------------------------------- ##
-cookies = [] 
+cookies = {}    # Maps Cookie IDs to Cookie objects
 
 # Init some mock data to the storage
 cookie_1 = Cookie("Chocolate Chip", "A regular chocolate chip cookie", 2.99, 100)
 cookie_2 = Cookie("Sugar Cookie", "A regular sugar cookie", 1.50, 1000)
-cookies.append(cookie_1)
-cookies.append(cookie_2)
+
+
+cookies[cookie_1.id] = cookie_1
+cookies[cookie_2.id] = cookie_2
 # ----------------------------------------------------------------- ##
 
 
@@ -66,40 +70,36 @@ cookie_output_model = cookie_ns.model('OutputCookie', {
 
 
 
-
-
 @cookie_ns.route('/')
 class CookieList(Resource):
 
 
-
     # GET /cookies (list all exisitng cookies)
-    @cookie_ns.marshal_list_with(cookie_output_model)
+    @cookie_ns.response(200, 'Success', cookie_output_model)
     @cookie_ns.param('name_search', "Filter by order name.")
     @cookie_ns.param('min_price', 'Filter by minimum price (float)', type='float')
     @cookie_ns.param('max_price', 'Filter by maximum price (float)', type='float')
     @cookie_ns.param('page', 'Page number (starting from 1)', type='int')
     @cookie_ns.param('per_page', 'Number of cookies per page', type='int')
+    @cookie_ns.response(400, 'Invalid input data')
     def get(self):
         '''
         Get all cookies in the shop, optionally filtered by name
         '''
 
         # Get filter parameters or None
-        name_search = request.args.get('name_search')
+        name_search = request.args.get('name_search', type=str)
         min_price = request.args.get('min_price', type=float)
         max_price = request.args.get('max_price', type=float)
-
-
 
         # Pagination
         page = request.args.get('page', default=1, type=int)
         per_page = request.args.get('per_page', default=10, type=int)
 
 
-
         filtered_cookies = []
-        for cookie in cookies:
+        for cookie in cookies.values():
+
             # Only apply filter if it was provided
             if name_search and name_search.lower() not in cookie.name.lower():
                 continue
@@ -114,15 +114,17 @@ class CookieList(Resource):
 
         # Apply pagination
         if page and per_page:
+            if page < 1 or per_page < 1:
+                return {'message': 'page and per_page must be positive integers'}, 400
+
             start = (page - 1) * per_page # idx of start cookie
             end = start + per_page # idx of end cookie
 
             # Build the requested page
             paginated_cookies = filtered_cookies[start:end]
-
             return paginated_cookies, 200
 
-
+        # No pagination if not requested
         else:
             return filtered_cookies, 200
     
@@ -131,6 +133,7 @@ class CookieList(Resource):
     # POST /cookies (add a new cookie)
     @cookie_ns.expect(cookie_input_model, validate=True)
     @cookie_ns.marshal_with(cookie_output_model, code=201)
+    @cookie_ns.response(400, 'Invalid input data')
     def post(self):
         '''
         Add a new cookie to the shop
@@ -138,6 +141,9 @@ class CookieList(Resource):
 
         # Get data from the request body
         data = request.get_json()
+        if data is None:
+            return {'message': 'Invalid or missing JSON in request body'}, 400
+
 
         # Extract data from request (or get None)
         name = data.get('name')
@@ -151,10 +157,10 @@ class CookieList(Resource):
         except ValueError as e:
             return {'message': str(e)}, 400  # Return the validation error from the Cookie constructor
 
-        # Add the new cookie to the list
-        cookies.append(new_cookie)
+        # Add the new cookie
+        cookies[new_cookie.id] = new_cookie
 
-        # Return the newly added cookie (Response code 201 for successful creation)
+        # Return the newly added cookie
         return new_cookie.to_dict(), 201
 
 
@@ -171,55 +177,59 @@ class CookieByID(Resource):
         '''
         Get a single cookie by its ID
         '''
-        for cookie in cookies:
-            if cookie.id == id:
+
+        if id in cookies:
+            cookie = cookies[id]
+
+            if cookie:
                 return cookie.to_dict(), 200
-        
-        # Return error message if cookie not found
-        return {'message': f'Cookie with ID {id} not found'}, 404
+            else:
+                return {'message': f'Error returning Cookie with ID {id}'}, 404
+        else:
+            return {'message': f'Cookie with ID {id} not found'}, 404
 
 
 
 
-    # PATCH /cookies/<int:id>    (partial (or full) update to a cookie)
+
+    # PATCH /cookies/<int:id>    (partial (or fully) update a cookie)
     @cookie_ns.expect(cookie_patch_model, validate=True)
     @cookie_ns.response(200, 'Success', cookie_output_model)
+    @cookie_ns.response(400, 'Invalid input data')
     @cookie_ns.response(404, 'Cookie not found')
     def patch(self, id):
         '''
-        Partially update a cookie by its ID
+        Update a cookie by its ID
         '''
 
         # Get data from the request body
         data = request.get_json()
+        if data is None:
+            return {'message': 'Invalid or missing JSON in request body'}, 400
 
-        cookie_to_update = None
-        cookie_idx = 0
+        # See if the cookie exists 
+        if id in cookies:
 
-        # Find the cookie with the matching ID and save the index its at in the list
-        for cookie in cookies:
-            if cookie.id == id:
-                cookie_to_update = cookie
-                break
-            cookie_idx +=1
+            cookie_to_update = cookies[id]
 
-        if cookie_to_update is None:
+            # Extract data from request (or get None)
+            name = data.get('name')
+            description = data.get('description')
+            price = data.get('price')
+            inventory_count = data.get('inventory_count')
+
+            # Update the cookie's details
+            cookies[id] = cookie_to_update.update_cookie(name, description, price, inventory_count)
+
+            # Return updated cookie
+            return cookie_to_update.to_dict(), 200
+
+        else:
             return {'message': f'Cookie with ID {id} not found.'}, 404
 
-        # Update only the fields present
-        if 'name' in data:
-            cookie_to_update.set_name(data['name'])
-        if 'description' in data:
-            cookie_to_update.set_description(data['description'])
-        if 'price' in data:
-            cookie_to_update.set_price(data['price'])
-        if 'inventory_count' in data:
-            cookie_to_update.set_inventory_count(data['inventory_count'])
 
-        # Update the cookie
-        cookies[cookie_idx] = cookie_to_update
 
-        return cookie_to_update.to_dict(), 200
+
 
 
 
@@ -230,26 +240,21 @@ class CookieByID(Resource):
         '''
         Delete a cookie by its ID
         '''
-        
-        cookie_to_delete = None
-        cookie_idx = 0
 
-        # Find the cookie with the matching ID and save the index its at in the list
-        for cookie in cookies:
-            if cookie.id == id:
-                cookie_to_delete = cookie
-                break
+        # See if the cookie exists 
+        if id in cookies:
+            del cookies[id]
 
-            cookie_idx +=1
+            # Return a 204 No Content response on success
+            return '', 204
 
-        if cookie_to_delete is None:
-            return {'message': f'Cookie with ID {id} not found.'}, 404
         else:
-            # Remove the cookie from the list
-            cookies.pop(cookie_idx)
+            return {'message': f'Cookie with ID {id} not found.'}, 404      
 
-        # Return a 204 No Content response on success
-        return '', 204
+
+
+
+
     
 
 
