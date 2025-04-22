@@ -7,6 +7,8 @@ from flask_restx import Namespace, Resource, fields
 from app.models.cookie import Cookie
 cookie_routes = Blueprint('cookie_routes', __name__) # Create Blueprint
 cookie_ns = Namespace('cookies', description='Operations related to cookies') # Create RESTX Namespace
+##############################################################################################################
+
 
 
 # In-memory storage for demo 
@@ -68,11 +70,8 @@ cookie_output_model = cookie_ns.model('OutputCookie', {
 
 
 
-
-
 @cookie_ns.route('/')
 class CookieList(Resource):
-
 
 
     # GET /cookies (list all exisitng cookies)
@@ -180,7 +179,12 @@ class CookieByID(Resource):
         '''
 
         if id in cookies:
-            return cookies[id].to_dict(), 200
+            cookie = cookies[id]
+
+            if cookie:
+                return cookie.to_dict(), 200
+            else:
+                return {'message': f'Error returning Cookie with ID {id}'}, 404
         else:
             return {'message': f'Cookie with ID {id} not found'}, 404
 
@@ -188,14 +192,14 @@ class CookieByID(Resource):
 
 
 
-    # PATCH /cookies/<int:id>    (partial (or full) update to a cookie)
+    # PATCH /cookies/<int:id>    (partial (or fully) update a cookie)
     @cookie_ns.expect(cookie_patch_model, validate=True)
     @cookie_ns.response(200, 'Success', cookie_output_model)
     @cookie_ns.response(400, 'Invalid input data')
     @cookie_ns.response(404, 'Cookie not found')
     def patch(self, id):
         '''
-        Partially update a cookie by its ID
+        Update a cookie by its ID
         '''
 
         # Get data from the request body
@@ -205,24 +209,27 @@ class CookieByID(Resource):
 
         # See if the cookie exists 
         if id in cookies:
+
             cookie_to_update = cookies[id]
+
+            # Extract data from request (or get None)
+            name = data.get('name')
+            description = data.get('description')
+            price = data.get('price')
+            inventory_count = data.get('inventory_count')
+
+            # Update the cookie's details
+            cookies[id] = cookie_to_update.update_cookie(name, description, price, inventory_count)
+
+            # Return updated cookie
+            return cookie_to_update.to_dict(), 200
+
         else:
             return {'message': f'Cookie with ID {id} not found.'}, 404
 
-        # Update only the fields present
-        if 'name' in data:
-            cookie_to_update.set_name(data['name'])
-        if 'description' in data:
-            cookie_to_update.set_description(data['description'])
-        if 'price' in data:
-            cookie_to_update.set_price(data['price'])
-        if 'inventory_count' in data:
-            cookie_to_update.set_inventory_count(data['inventory_count'])
 
-        cookies[id] = cookie_to_update
 
-        # Return updated cookie
-        return cookie_to_update.to_dict(), 200
+
 
 
 

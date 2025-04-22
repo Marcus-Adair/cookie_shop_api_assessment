@@ -2,13 +2,14 @@
     Cookie Routes - with Swagger Namespace
 '''
 
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, request
 from flask_restx import Namespace, Resource, fields
 from datetime import datetime
 from app.models.order import Order
-from app.routes.cookie_routes import CookieByID
 order_routes = Blueprint('order_routes', __name__) # Create Blueprint
-order_ns = Namespace('orders', description='Operations related to orders') # Create RESTX Namespace (for Swagger)
+order_ns = Namespace('orders', description='Operations related to orders') # Create RESTX Namespace
+##############################################################################################################
+
 
 
 # In-memory storage for demo 
@@ -93,7 +94,7 @@ order_output_model = order_ns.model('OuputOrder', {
         description=status_description,
         enum=status_enum,
         example=status_example
-    ),
+    )
 })
 
 
@@ -123,11 +124,11 @@ class OrderList(Resource):
         '''
 
         # Get search params
-        status_search = request.args.get('status', None)
+        status_search = request.args.get('status', type=str)
         min_total_amount = request.args.get('min_total_amount', type=float)
         max_total_amount = request.args.get('max_total_amount', type=float)
-        min_date = request.args.get('min_date')
-        max_date = request.args.get('max_date')
+        min_date = request.args.get('min_date', type=str)
+        max_date = request.args.get('max_date', type=str)
         if min_date:
             min_date = datetime.fromisoformat(min_date.replace('Z', '+00:00'))
         if max_date:
@@ -136,7 +137,6 @@ class OrderList(Resource):
 
         filtered_orders = []
 
-        # for order in orders:
         for order in orders.values():
 
             # Filter by order status
@@ -145,38 +145,22 @@ class OrderList(Resource):
 
 
             # Filter by the order date
-            order_date = order.order_date # The date the order was made
-            if min_date is not None and order_date < min_date:
+            if min_date is not None and order.order_date < min_date:
                 continue
-            if max_date is not None and order_date > max_date:
+            if max_date is not None and order.order_date > max_date:
                 continue
 
 
-            # If we want to filter by order's total amount
-            total_amount = 0
+            # Filter by price
             if min_total_amount or max_total_amount:
 
-                # For each cookie-quantity combo in the order
-                for cookie_id, cookie_quantity in order.cookies_and_quantities.items():
+                total_order_amount = order.get_order_total_amount()
 
-                    # Get the cookie details 
-                    response_data, status_code = CookieByID().get(cookie_id)
-                    if status_code == 200 and response_data:
-                        cookie_price = response_data.get('price')
-                        if cookie_price:
-
-                            # Calculate order amount for current cookie
-                            total_amount += (cookie_price * cookie_quantity) 
-
-                    else:
-                        print("No data or request failed when when getting cookie amounts")
-
-
-            # Filter by the total cookie amount in the order
-            if min_total_amount is not None and total_amount < min_total_amount:
-                continue
-            if max_total_amount is not None and total_amount > max_total_amount:
-                continue
+                # Filter by the total cookie amount in the order
+                if min_total_amount is not None and total_order_amount < min_total_amount:
+                    continue
+                if max_total_amount is not None and total_order_amount > max_total_amount:
+                    continue
 
 
             filtered_orders.append(order.to_dict()) # Add valid orders
@@ -196,8 +180,8 @@ class OrderList(Resource):
         data = request.get_json()
 
         # Extract data from request (or get None)
-        cookies_and_quantities = data.get('cookies_and_quantities', type=dict)
-        deliver_date = data.get('deliver_date', type=str)
+        cookies_and_quantities = data.get('cookies_and_quantities')
+        deliver_date = data.get('deliver_date')
 
 
         # Create valid format for Order constuctor from input JSON
