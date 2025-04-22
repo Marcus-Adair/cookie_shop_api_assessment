@@ -109,8 +109,7 @@ class CookieList(Resource):
                 continue
 
             # Add cookie if it passes all the filter
-            if cookie:
-                filtered_cookies.append(cookie.to_dict())
+            filtered_cookies.append(cookie.to_dict())
 
 
         # Apply pagination
