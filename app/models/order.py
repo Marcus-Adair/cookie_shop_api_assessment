@@ -9,7 +9,6 @@ from app.models.cookie import Cookie
 
 class Order:
     
-    # Shared Class Variables
     _id_counter = 0  # Class-level counter to give orders unique IDs
 
     # Statuses for an order
@@ -28,7 +27,6 @@ class Order:
         '''
 
         # Validate inputs to new Order
-
         if not isinstance(cookies_and_quantities, dict):  # Validate it's a dictionary
             raise ValueError(f"cookies_and_quantities must be a dictionary, got {type(cookies_and_quantities)} instead.")
 
@@ -141,7 +139,6 @@ class Order:
                         price=response_data['price'],
                         inventory_count=response_data['inventory_count']
                     )
-
 
                     # Add to total
                     order_total_amount += (cookie.price * cookie_quantity)

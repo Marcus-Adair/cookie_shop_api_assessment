@@ -5,9 +5,7 @@ from typing import Optional
 
 class Cookie:
     
-    # Shared Class Variables
     _id_counter = 0  # Class-level counter to give cookie unique IDs
-
 
     def __init__(self, name: str, description: str, price: float, inventory_count: int):
 

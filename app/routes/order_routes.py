@@ -190,19 +190,21 @@ class OrderList(Resource):
             for key, value in cookies_and_quantities.items()
         }
 
-        deliver_date_datetime = datetime.fromisoformat(deliver_date.replace('Z', '+00:00'))
-
-        pending_status = getattr(Order.OrderStatus, "PENDING")
-
 
         # TODO: make sure all of the IDs are valid by calling /cookies and checking IDs
+
+        # New order made at current time
+        deliver_date_datetime = datetime.fromisoformat(deliver_date.replace('Z', '+00:00'))
+
+        # New order starts as PENDING
+        pending_status = getattr(Order.OrderStatus, "PENDING")
 
 
         # Create a new Order instance 
         try:
             new_order = Order(cookies_and_quantities=cookies_and_quantities_dict, order_date=datetime.now(), deliver_date=deliver_date_datetime, status=pending_status)
         except ValueError as e:
-            return {'message': str(e)}, 400  # Return the validation error from the Order constructor
+            return {'message': f"Error creating cookie: {str(e)}"}, 400  # Return the validation error from the Order constructor
 
         # Add the new order to the list
         orders[new_order.id] = new_order
@@ -245,6 +247,16 @@ class OrderByID(Resource):
         Update an order's status by its ID
         '''
 
+        # Map to define which state can transition to which
+        valid_transitions = {
+            "PENDING": ["COOKING", "CANCELLED"],
+            "COOKING": ["SHIPPING", "CANCELLED"],
+            "SHIPPING": ["DELIVERED", "CANCELLED"],
+            "DELIVERED": [],
+            "CANCELLED": []
+        }
+
+
         # Get data from the request body
         data = request.get_json()
         if data is None:
@@ -253,45 +265,28 @@ class OrderByID(Resource):
             
 
         if status_given:
-            status_given = status_given.upper()
-
-            # Map to define which state can transition to which
-            valid_transitions = {
-                "PENDING": ["COOKING", "CANCELLED"],
-                "COOKING": ["SHIPPING", "CANCELLED"],
-                "SHIPPING": ["DELIVERED", "CANCELLED"],
-                "DELIVERED": [],
-                "CANCELLED": []
-            }
-
-
             if id in orders:
-                order_to_update = orders[id]
+
+                status_given = status_given.upper()
+                current_status = orders[id].status.name.upper()
+
+                # Make sure requested status is valid
+                if not hasattr(Order.OrderStatus, status_given):
+                    return {'message': f'The given status is not valid: {status_given}'}, 404
+
+                # Validate status transition
+                if status_given not in valid_transitions.get(current_status, []):
+                    return {'message': f'Cannot transition from {current_status} to {status_given}.'}, 400
+
+                # Transition status
+                orders[id].set_status(getattr(Order.OrderStatus, status_given))
+
+                # Return updated order
+                return orders[id].to_dict(), 200
+
+
             else:
                 return {'message': f'order with ID {id} not found.'}, 404
-
-
-            current_status = order_to_update.status.name.upper()
-
-            # Make sure requested status is valid
-            if not hasattr(Order.OrderStatus, status_given):
-                return {'message': f'The given status is not valid: {status_given}'}, 404
-
-            # Validate status transition
-            if status_given not in valid_transitions.get(current_status, []):
-                return {'message': f'Cannot transition from {current_status} to {status_given}.'}, 400
-
-            # Transition status
-            new_status = getattr(Order.OrderStatus, status_given)
-            order_to_update.set_status(new_status)
-
-    
-            # Update the order
-            orders[id] = order_to_update
-
-            # Return updated order
-            return order_to_update.to_dict(), 200
-        
         else:
             return {'message': 'No status to transistion to given'}, 404
     
